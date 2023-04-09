@@ -38,7 +38,7 @@ class BookRepository(private val client: PgPool) {
 
   fun get(bookId: Int): Future<BookInfo> {
     val params = HashMap<String, Any>()
-    params["bookId"] = bookId.toString()
+    params["bookId"] = bookId
     return SqlTemplate
       //used * here instead of listing needed columns as data size is small
       .forQuery(client, "select * from book where id =#{bookId}")

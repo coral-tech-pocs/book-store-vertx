@@ -1,7 +1,7 @@
 package com.coral.bookstore.service
 
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.coral.bookstore.repository.BookRepository
+import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import coral.bookstore.bookstore.entity.Book
 import coral.bookstore.bookstore.repository.DBConnection
 import io.vertx.core.Future
@@ -37,8 +37,13 @@ class BookHandler(private val vertx: Vertx) {
 
   fun get(ctx: RoutingContext) {
     val repository = initDB(vertx)
-
-    var bookId = Integer.valueOf(ctx.pathParam("id"))
+    var bookId = 0
+    try {
+      bookId = Integer.valueOf(ctx.pathParam("id"))
+    } catch (e: NumberFormatException) {
+      ctx.fail(400, e)
+      return
+    }
     LOGGER.info("bookId : $bookId")
     repository.get(bookId)
       .onSuccess {
@@ -48,10 +53,15 @@ class BookHandler(private val vertx: Vertx) {
   }
 
   fun getImage(ctx: RoutingContext) {
-    var bookId = Integer.valueOf(ctx.pathParam("id"))
-
+    var bookId = 0
+    try {
+      bookId = Integer.valueOf(ctx.pathParam("id"))
+    } catch (e: NumberFormatException) {
+      ctx.fail(400, e)
+      return
+    }
     vertx.fileSystem().readFile(imagesDir.plus(bookId))
-      .onSuccess{
+      .onSuccess {
         println(it.length())
         var response = ctx.response()
         response.putHeader("Content-Type", "application/octet")
@@ -66,17 +76,34 @@ class BookHandler(private val vertx: Vertx) {
   fun insert(ctx: RoutingContext) {
     val repository = initDB(vertx)
 
-    val formAttributes : MultiMap = ctx.request().formAttributes()
-    val book = Book(0,formAttributes.get("isbn"),formAttributes.get("title"),formAttributes.get("description"),formAttributes.get("price").toLong())
+    var book : Book = Book()
+    try {
+      val formAttributes: MultiMap = ctx.request().formAttributes()
+      if (formAttributes.get("isbn") == null || formAttributes.get("title") == null
+        || formAttributes.get("price") == null || formAttributes.get("price").toLong() < 0) {
+        ctx.fail(400)
+        return
+      } else
+        book = Book(
+        0,
+        formAttributes.get("isbn"),
+        formAttributes.get("title"),
+        formAttributes.get("description"),
+        formAttributes.get("price").toLong())
+
+    } catch (e: Exception) {
+      ctx.fail(400, e)
+      return
+    }
 
     repository.insert(book)
-      .onSuccess {  returnedId : Long ->
+      .onSuccess { returnedId: Long ->
         LOGGER.info("Inserted Row Id : $returnedId")
         //upload image and rename it to be linked with book id
         val fileUploadList: List<FileUpload> = ctx.fileUploads()
         var file = fileUploadList[0]
         val lastIndexOf = file.uploadedFileName().lastIndexOf("/")
-        var fullPath = file.uploadedFileName().substring(0,lastIndexOf+1).plus(returnedId)
+        var fullPath = file.uploadedFileName().substring(0, lastIndexOf + 1).plus(returnedId)
         val src = File(file.uploadedFileName())
         val renamedTo = src.renameTo(File(fullPath))
         LOGGER.info("renamedTo: $renamedTo")
@@ -92,7 +119,13 @@ class BookHandler(private val vertx: Vertx) {
 
   fun delete(ctx: RoutingContext) {
     val repository = initDB(vertx)
-    var bookId = Integer.valueOf(ctx.pathParam("id"))
+    var bookId = 0
+    try {
+      bookId = Integer.valueOf(ctx.pathParam("id"))
+    } catch (e: NumberFormatException) {
+      ctx.fail(400, e)
+      return
+    }
     repository.delete(bookId)
       .onSuccess {
         LOGGER.info("deleted rows : $it")
@@ -106,8 +139,19 @@ class BookHandler(private val vertx: Vertx) {
 
   fun update(ctx: RoutingContext) {
     val repository = initDB(vertx)
-    var bookId = Integer.valueOf(ctx.pathParam("id"))
-    val book = mapper.readValue(ctx.body().asString(), Book::class.java)
+    var bookId = 0
+    var book = Book()
+    try {
+      bookId = Integer.valueOf(ctx.pathParam("id"))
+      val book = mapper.readValue(ctx.body().asString(), Book::class.java)
+      if(notValidBook(book)) {
+        ctx.fail(400)
+        return
+      }
+    } catch (e: Exception) {
+      ctx.fail(400, e)
+      return
+    }
 
     repository.update(bookId, book)
       .onSuccess {
@@ -122,7 +166,13 @@ class BookHandler(private val vertx: Vertx) {
 
   fun exists(ctx: RoutingContext) {
     val repository = initDB(vertx)
-    var isbn = ctx.pathParam("isbn")
+    var isbn = String()
+    try {
+      var isbn = ctx.pathParam("isbn")
+    } catch (e: Exception) {
+      ctx.fail(400, e)
+      return
+    }
     repository.exists(isbn)
       .onSuccess {
         LOGGER.info("exists : $it")
@@ -133,8 +183,19 @@ class BookHandler(private val vertx: Vertx) {
 
   fun setTitle(ctx: RoutingContext) {
     val repository = initDB(vertx)
-    var bookId = Integer.valueOf(ctx.pathParam("id"))
-    var newTitle = ctx.request().getParam("new_title")
+    var bookId = 0
+    var newTitle = String()
+    try {
+      bookId = Integer.valueOf(ctx.pathParam("id"))
+      newTitle = ctx.request().getParam("new_title")
+      if(newTitle.isNullOrEmpty()){
+        ctx.fail(400)
+        return
+      }
+    } catch (e: Exception) {
+      ctx.fail(400, e)
+      return
+    }
 
     repository.setTitle(bookId, newTitle)
       .onSuccess {
@@ -174,6 +235,10 @@ class BookHandler(private val vertx: Vertx) {
         return value
     }
 
+    private fun notValidBook(book : Book) : Boolean {
+      return (book.isbn.isNullOrEmpty() || book.title.isNullOrEmpty()
+        || (book.price != null &&  book.price < 0))
+    }
   }
 
 }

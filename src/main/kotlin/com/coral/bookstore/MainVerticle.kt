@@ -2,20 +2,15 @@ package com.coral.bookstore
 
 import com.coral.bookstore.repository.LiquibaseConfig
 import com.coral.bookstore.service.BookHandler
+import com.coral.bookstore.service.OpenApiService
+import com.coral.bookstore.service.OpenApiVerticle
 import coral.bookstore.bookstore.service.AuthorHandler
 import io.vertx.core.AbstractVerticle
+import io.vertx.core.Future
 import io.vertx.core.Promise
-import io.vertx.core.json.JsonObject
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.handler.BodyHandler
-import liquibase.Liquibase
-import liquibase.database.Database
-import liquibase.database.DatabaseFactory
-import liquibase.database.jvm.JdbcConnection
-import liquibase.resource.ClassLoaderResourceAccessor
-import org.postgresql.ds.PGConnectionPoolDataSource
-import org.postgresql.ds.PGSimpleDataSource
-import java.util.logging.Logger
+import io.vertx.ext.web.openapi.RouterBuilder
 
 
 class MainVerticle : AbstractVerticle() {
@@ -25,7 +20,10 @@ class MainVerticle : AbstractVerticle() {
     val bookHandler = BookHandler(vertx)
 //    val authorHandler = AuthorHandler(vertx)
 
+    //liquibase code
     vertx.executeBlocking { promise: Promise<Any> -> LiquibaseConfig.runLiquibaseScripts(vertx, promise)}
+
+    vertx.deployVerticle(OpenApiVerticle())
 
     vertx.createHttpServer()
       .requestHandler(bookRoutes(bookHandler))

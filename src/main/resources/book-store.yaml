@@ -1,0 +1,189 @@
+---
+openapi: 3.0.2
+info:
+  title: book-store
+  version: 1.0.0
+  description: describe all endpoints against book-store
+paths:
+  /books:
+    get:
+      parameters:
+      - examples:
+          default page:
+            value: "1"
+        name: page
+        description: page number to be returned
+        schema:
+          type: integer
+        in: query
+        required: true
+      - examples:
+          default page size:
+            value: "5"
+        name: pageSize
+        description: the size of elements to be returned
+        schema:
+          type: integer
+        in: query
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BookInfo'
+              examples:
+                sample response:
+                  value:
+                  - id: 21
+                    isbn: zxc23
+                    title: Test 21
+                    price: 52
+                  - id: 40
+                    isbn: zxc123
+                    title: Test 123
+                    price: 64
+          description: get all books with pagination
+      operationId: getBooks
+      summary: list all books
+    put:
+      requestBody:
+        description: new book info values
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookInfo'
+            examples:
+              new book info:
+                value:
+                  isbn: zxc27
+                  title: Test 27
+                  description: any test to descript my book
+                  price: 54
+        required: true
+      responses:
+        "200":
+          description: SUCCESS
+      operationId: updateBook
+      description: you have to provide book Id as a path variable with book info to
+        be updated
+    post:
+      requestBody:
+        description: book info data
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/BookInfo'
+            examples:
+              sample book info:
+                value: |-
+                  content:[uploaded-book-image]
+                  isbn:zxc123
+                  title:Test 123
+                  description:any test to descript my book
+                  price:64
+        required: true
+      responses:
+        "200":
+          description: SUCCESS
+      operationId: addBook
+      summary: insert book info with image
+    delete:
+      responses:
+        "200":
+          description: SUCCESS
+      operationId: deleteBook
+      summary: delete book info by book id
+      description: you have to provide book Id as a path variable
+  /books/:id:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              examples:
+                sample book info:
+                  value:
+                    id: 21
+                    isbn: zxc23
+                    title: Test 21
+                    price: 52
+          description: return book info for the provided id
+      operationId: getBookById
+      summary: return specific book info based on provided id
+      description: you have to provide book Id as a path variable
+    patch:
+      parameters:
+      - name: new_title
+        description: new book title to be updated with
+        schema:
+          type: string
+        in: query
+        required: true
+      responses:
+        "200":
+          description: return SUCCESS
+      summary: update title by using book id
+      description: you have to provide book Id as a path variable
+  /books/:id/image:
+    get:
+      responses:
+        "200":
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              examples:
+                Content-Disposition:
+                  value: attachment; filename="picture.png"
+            Content-Length:
+              schema:
+                type: string
+              examples:
+                Content-Length:
+                  value: length().toString()
+          content:
+            byte[]:
+              schema:
+                format: byte
+                type: string
+          description: "return byte[] represent book iamge"
+      operationId: getImageByBookId
+      summary: download image by book id
+      description: you have to provide book Id as a path variable
+  /books/:isbn:
+    head:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: boolean
+              examples:
+                after check Isbn:
+                  value: True / False
+          description: return true or false
+      operationId: checkIsbnExist
+      summary: check if Isbn exists
+      description: you have to provide Isbn as a path variable
+components:
+  schemas:
+    BookInfo:
+      description: ""
+      required:
+      - isbn
+      - title
+      - price
+      type: object
+      properties:
+        isbn:
+          description: ""
+          type: string
+        title:
+          description: ""
+          type: string
+        price:
+          description: ""
+          type: integer

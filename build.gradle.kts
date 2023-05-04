@@ -1,5 +1,6 @@
 import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
 import org.gradle.api.tasks.testing.logging.TestLogEvent.*
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
@@ -38,13 +39,22 @@ dependencies {
   implementation("io.vertx:vertx-jdbc-client")
   implementation("io.vertx:vertx-web-openapi")
   implementation("io.vertx:vertx-lang-kotlin")
+  implementation("io.vertx:vertx-web-client")
+  implementation("io.reactiverse:reactiverse-junit5-web-client:0.3.0")
   implementation(kotlin("stdlib"))
   implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.14.2")
   implementation("org.liquibase:liquibase-core:4.20.0")
   implementation("org.postgresql:postgresql:42.6.0")
   implementation("com.ongres.scram:client:2.1")
-  testImplementation("io.vertx:vertx-junit5")
+  testImplementation("io.vertx:vertx-unit")
+  testImplementation("org.mockito.kotlin:mockito-kotlin:4.1.0")
   testImplementation("org.junit.jupiter:junit-jupiter:$junitJupiterVersion")
+  testImplementation("org.assertj:assertj-core:3.24.2")
+  testImplementation("com.h2database:h2:2.1.214")
+
+
+
+
 }
 
 java {
@@ -66,6 +76,8 @@ tasks.withType<Test> {
   useJUnitPlatform()
   testLogging {
     events = setOf(PASSED, SKIPPED, FAILED)
+    exceptionFormat = FULL
+    showStandardStreams = true
   }
 }
 

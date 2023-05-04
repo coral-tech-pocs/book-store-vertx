@@ -21,7 +21,7 @@ class DBConnection {
       .setPassword("postgres")
 
     // Pool Options
-    val poolOptions = PoolOptions().setMaxSize(5)
+    val poolOptions = PoolOptions().setMaxSize(5).setShared(true)
 
     // Create the pool from the data object
     return PgPool.pool(vertx, connectOptions, poolOptions)

@@ -3,14 +3,17 @@ package com.coral.bookstore.service
 import com.coral.bookstore.repository.BookRepository
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import coral.bookstore.bookstore.entity.Book
+import coral.bookstore.bookstore.models.BookInfo
 import coral.bookstore.bookstore.repository.DBConnection
 import io.vertx.core.Future
 import io.vertx.core.MultiMap
+import io.vertx.core.Promise
 import io.vertx.core.Vertx
 import io.vertx.core.json.Json
 import io.vertx.ext.web.FileUpload
 import io.vertx.ext.web.RoutingContext
 import java.io.File
+import java.util.logging.Level
 import java.util.logging.Logger
 
 class BookHandler(private val vertx: Vertx) {
@@ -30,14 +33,14 @@ class BookHandler(private val vertx: Vertx) {
 
     repository.list(params)
       .onSuccess {
-        ctx.response().end(Json.encodePrettily(it))
+          ctx.response().end(Json.encodePrettily(it))
       }
       .onFailure { buildErrorResponse(it, ctx) }
   }
 
   fun get(ctx: RoutingContext) {
     val repository = initDB(vertx)
-    var bookId = 0
+    val bookId: Int
     try {
       bookId = Integer.valueOf(ctx.pathParam("id"))
     } catch (e: NumberFormatException) {
@@ -53,7 +56,7 @@ class BookHandler(private val vertx: Vertx) {
   }
 
   fun getImage(ctx: RoutingContext) {
-    var bookId = 0
+    val bookId: Int
     try {
       bookId = Integer.valueOf(ctx.pathParam("id"))
     } catch (e: NumberFormatException) {
@@ -70,18 +73,18 @@ class BookHandler(private val vertx: Vertx) {
         response.write(it)
         response.end()
       }
-      .onFailure { buildErrorResponse(it, ctx) }
+      .onFailure { err -> buildErrorResponse(err, ctx) }
   }
 
   fun insert(ctx: RoutingContext) {
     val repository = initDB(vertx)
 
-    var book : Book = Book()
+    val book : Book
     try {
       val formAttributes: MultiMap = ctx.request().formAttributes()
-      if (formAttributes.get("isbn") == null || formAttributes.get("title") == null
-        || formAttributes.get("price") == null || formAttributes.get("price").toLong() < 0) {
-        ctx.fail(400)
+      if (formAttributes.get("isbn").isNullOrEmpty() || formAttributes.get("title").isNullOrEmpty()
+        || formAttributes.get("price").isNullOrEmpty() || formAttributes.get("price").toLong() < 0) {
+        ctx.fail(400, Exception("Expected form attributes"))
         return
       } else
         book = Book(
@@ -92,6 +95,8 @@ class BookHandler(private val vertx: Vertx) {
         formAttributes.get("price").toLong())
 
     } catch (e: Exception) {
+      println("println - Validation error : $e")
+      LOGGER.log(Level.SEVERE,"Validation error : $e")
       ctx.fail(400, e)
       return
     }
@@ -100,18 +105,20 @@ class BookHandler(private val vertx: Vertx) {
       .onSuccess { returnedId: Long ->
         LOGGER.info("Inserted Row Id : $returnedId")
         //upload image and rename it to be linked with book id
-        val fileUploadList: List<FileUpload> = ctx.fileUploads()
-        var file = fileUploadList[0]
-        val lastIndexOf = file.uploadedFileName().lastIndexOf("/")
-        var fullPath = file.uploadedFileName().substring(0, lastIndexOf + 1).plus(returnedId)
-        val src = File(file.uploadedFileName())
-        val renamedTo = src.renameTo(File(fullPath))
-        LOGGER.info("renamedTo: $renamedTo")
+        if(!ctx.fileUploads().isNullOrEmpty()){
+          val fileUploadList: List<FileUpload> = ctx.fileUploads()
+          var file = fileUploadList[0]
+          val lastIndexOf = file.uploadedFileName().lastIndexOf("/")
+          var fullPath = file.uploadedFileName().substring(0, lastIndexOf + 1).plus(returnedId)
+          val src = File(file.uploadedFileName())
+          val renamedTo = src.renameTo(File(fullPath))
+          LOGGER.info("renamedTo: $renamedTo")
+        }
 
         val response = ctx.response()
-        response.setChunked(true)
-        response.setStatusCode(201)
-        response.write("SUCCESS")
+        response.isChunked = true
+        response.statusCode = 201
+        response.write(returnedId.toString())
         response.end()
       }
       .onFailure { buildErrorResponse(it, ctx) }
@@ -119,7 +126,7 @@ class BookHandler(private val vertx: Vertx) {
 
   fun delete(ctx: RoutingContext) {
     val repository = initDB(vertx)
-    var bookId = 0
+    val bookId: Int
     try {
       bookId = Integer.valueOf(ctx.pathParam("id"))
     } catch (e: NumberFormatException) {
@@ -131,7 +138,7 @@ class BookHandler(private val vertx: Vertx) {
         LOGGER.info("deleted rows : $it")
         val response = ctx.response()
         response.setChunked(true)
-        response.write("SUCCESS")
+        response.write(it.toString())
         response.end()
       }
       .onFailure { buildErrorResponse(it, ctx) }
@@ -139,11 +146,11 @@ class BookHandler(private val vertx: Vertx) {
 
   fun update(ctx: RoutingContext) {
     val repository = initDB(vertx)
-    var bookId = 0
-    var book = Book()
+    val bookId : Int
+    val book : Book
     try {
       bookId = Integer.valueOf(ctx.pathParam("id"))
-      val book = mapper.readValue(ctx.body().asString(), Book::class.java)
+      book = mapper.readValue(ctx.body().asString(), Book::class.java)
       if(notValidBook(book)) {
         ctx.fail(400)
         return
@@ -158,7 +165,7 @@ class BookHandler(private val vertx: Vertx) {
         LOGGER.info("updated rows : $it")
         val response = ctx.response()
         response.setChunked(true)
-        response.write("SUCCESS")
+        response.write(it.toString())
         response.end()
       }
       .onFailure { buildErrorResponse(it, ctx) }
@@ -166,25 +173,31 @@ class BookHandler(private val vertx: Vertx) {
 
   fun exists(ctx: RoutingContext) {
     val repository = initDB(vertx)
-    var isbn = String()
+    val isbn : String
     try {
-      var isbn = ctx.pathParam("isbn")
+      isbn = ctx.pathParam("isbn")
     } catch (e: Exception) {
       ctx.fail(400, e)
       return
     }
     repository.exists(isbn)
       .onSuccess {
-        LOGGER.info("exists : $it")
-        ctx.response().end(it.toString())
+        var response = ctx.response()
+        LOGGER.info("exists : ${it.isNotEmpty()}")
+
+        if(it.isNotEmpty())
+          response.putHeader("isExist", "true")
+        else
+          response.putHeader("isExist", "false")
+        response.end()
       }
       .onFailure { buildErrorResponse(it, ctx) }
   }
 
   fun setTitle(ctx: RoutingContext) {
     val repository = initDB(vertx)
-    var bookId = 0
-    var newTitle = String()
+    val bookId : Int
+    val newTitle : String
     try {
       bookId = Integer.valueOf(ctx.pathParam("id"))
       newTitle = ctx.request().getParam("new_title")
@@ -200,10 +213,7 @@ class BookHandler(private val vertx: Vertx) {
     repository.setTitle(bookId, newTitle)
       .onSuccess {
         LOGGER.info("updated rows : $it")
-        val response = ctx.response()
-        response.setChunked(true)
-        response.write("SUCCESS")
-        response.end()
+        ctx.response().end(it.toString())
       }
       .onFailure { buildErrorResponse(it, ctx) }
   }
@@ -219,25 +229,18 @@ class BookHandler(private val vertx: Vertx) {
     private val LOGGER = Logger.getLogger(BookHandler::class.java.name)
     val mapper = jacksonObjectMapper()
     val buildErrorResponse: (Throwable, RoutingContext) -> Future<Void> = { err: Throwable, ctx: RoutingContext ->
-      val response = ctx.response()
-      response.setChunked(true)
-      response.setStatusCode(500)
-      response.write("<html><body><h1>Something Error Happen</h1></body></html>")
-      LOGGER.info("Error : $err")
-      response.end()
+      ctx.fail(500, Exception("Something Error Happen"))
+      LOGGER.log(Level.SEVERE,"buildErrorResponse - Error : $err")
+      Promise.promise<Void>().future()
     }
 
     private fun getQueryParam(ctx: RoutingContext, paramName: String, defaultValue: String): String {
-      var value = ctx.request().getParam(paramName)
-      if (value == null)
-        return defaultValue
-      else
-        return value
+      return ctx.request().getParam(paramName) ?: defaultValue
     }
 
     private fun notValidBook(book : Book) : Boolean {
       return (book.isbn.isNullOrEmpty() || book.title.isNullOrEmpty()
-        || (book.price != null &&  book.price < 0))
+        || book.price < 0)
     }
   }
 

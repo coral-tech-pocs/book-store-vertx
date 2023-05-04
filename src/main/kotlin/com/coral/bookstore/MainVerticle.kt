@@ -9,8 +9,12 @@ import io.vertx.core.AbstractVerticle
 import io.vertx.core.Future
 import io.vertx.core.Promise
 import io.vertx.ext.web.Router
+import io.vertx.ext.web.RoutingContext
 import io.vertx.ext.web.handler.BodyHandler
 import io.vertx.ext.web.openapi.RouterBuilder
+import io.vertx.ext.web.validation.ValidationHandler
+import java.util.logging.Level
+import java.util.logging.Logger
 
 
 class MainVerticle : AbstractVerticle() {
@@ -21,7 +25,7 @@ class MainVerticle : AbstractVerticle() {
 //    val authorHandler = AuthorHandler(vertx)
 
     //liquibase code
-    vertx.executeBlocking { promise: Promise<Any> -> LiquibaseConfig.runLiquibaseScripts(vertx, promise)}
+//    vertx.executeBlocking { promise: Promise<Any> -> LiquibaseConfig.runLiquibaseScripts(vertx, promise)}
 
     vertx.deployVerticle(OpenApiVerticle())
 
@@ -42,6 +46,8 @@ class MainVerticle : AbstractVerticle() {
 
   private fun bookRoutes(bookHandler: BookHandler): Router {
     var router = Router.router(vertx)
+    router.route().failureHandler(this::handleFailure)
+
     router.get("/books").handler { ctx -> bookHandler.list(ctx) }
     router.get("/books/:id").handler { ctx -> bookHandler.get(ctx) }
     router.get("/books/:id/image").handler { ctx -> bookHandler.getImage(ctx) }
@@ -62,6 +68,17 @@ class MainVerticle : AbstractVerticle() {
     var router = Router.router(vertx)
     router.get("/authors").handler { ctx -> author.getAuthorBooks(ctx) }
     return router
+  }
+
+  private fun handleFailure(routingContext: RoutingContext) {
+    val logger = Logger.getLogger(MainVerticle::class.java.name)
+    logger.log(Level.SEVERE, "handleFailure - Error : " + routingContext.failure()?.stackTraceToString())
+    val res = routingContext.response()
+    res.putHeader("Content-type", "application/json; charset=utf-8")
+    res.statusCode = routingContext.statusCode()
+    res.isChunked = true
+    res.write("" + routingContext.failure()?.message)
+    res.end()
   }
 
   // Optional - called when verticle is undeployed

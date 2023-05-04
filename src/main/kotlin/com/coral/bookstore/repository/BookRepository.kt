@@ -15,19 +15,22 @@ class BookRepository(private val client: PgPool) {
   //  bookName : String, page : Int, pageSize : Int
   fun list(filterMap: HashMap<String, String>): Future<List<BookInfo>> {
     val params = HashMap<String, Any>()
-
+    LOGGER.info("title: ".plus(filterMap["title"].toString()))
     var query: String = "select * from book "
     if (filterMap["title"] != "") {
-      filterMap["title"] = filterMap["title"].toString()
       query = query.plus("where title =#{title} ")
+      params["title"] = filterMap["title"].toString()
+      LOGGER.info("title: ".plus(filterMap["title"].toString()))
+    }else{
+      val pageSize: Int = Integer.valueOf(filterMap["pageSize"].toString())
+      val pageOffset: Int = (Integer.valueOf(filterMap["page"].toString()) - 1) * pageSize
+      LOGGER.info(" pageSize : $pageSize - pageOffset : $pageOffset")
+
+      query = query.plus("order by id offset #{pageOffset}")
+        .plus(" fetch next #{pageSize}").plus(" rows only")
+      params["pageOffset"] = pageOffset
+      params["pageSize"] = pageSize
     }
-
-    val pageSize: Int = Integer.valueOf(filterMap["pageSize"].toString())
-    val pageOffset: Int = (Integer.valueOf(filterMap["page"].toString()) - 1) * pageSize
-    println(" pageSize : $pageSize - pageOffset : $pageOffset")
-
-    query = query.plus("order by id offset ").plus(pageOffset)
-      .plus(" fetch next ").plus(pageSize).plus(" rows only")
 
     return SqlTemplate
       //used * here instead of listing needed columns as data size is small
@@ -84,7 +87,7 @@ class BookRepository(private val client: PgPool) {
       .map { it.rowCount() }
   }
 
-  fun exists(isbn: String): Future<Boolean> {
+  fun exists(isbn: String): Future<List<BookInfo>> {
     val params = HashMap<String, Any>()
     params["isbn"] = isbn
 
@@ -93,7 +96,7 @@ class BookRepository(private val client: PgPool) {
       .forQuery(client, "select * from book where isbn =#{isbn}")
       .execute(params)
       .map { rowSet ->
-        rowSet.asSequence().map(mapBookToDTO).map { bookInfo -> bookInfo.isbn.equals(isbn) }.toList()[0]
+        rowSet.asSequence().map(mapBookToDTO).toList()
       }
   }
 

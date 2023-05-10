@@ -1,5 +1,7 @@
 package coral.bookstore.bookstore.repository
 
+import com.coral.bookstore.MainVerticle
+import io.vertx.core.Context
 import io.vertx.core.Future
 import io.vertx.core.Promise
 import io.vertx.core.Vertx
@@ -8,20 +10,27 @@ import io.vertx.pgclient.PgConnectOptions
 import io.vertx.pgclient.PgPool
 import io.vertx.sqlclient.PoolOptions
 import liquibase.database.Database
-
+import java.util.logging.Logger
 
 class DBConnection {
 
-  fun pgPool(vertx : Vertx): PgPool {
-    val connectOptions = PgConnectOptions()
-      .setPort(5432)
-      .setHost("localhost")
-      .setDatabase("liquibase_bookstore")
-      .setUser("postgres")
-      .setPassword("postgres")
+  private val logger = Logger.getLogger(DBConnection::class.java.name)
 
+  fun pgPool(vertx: Vertx): PgPool {
+    val context: Context = vertx.orCreateContext
+    val activeProfile: String = context.config().getString("active_profile", "TEST")
+    logger.info("DBConnection - active Profile : ".plus(activeProfile))
+
+    val connectOptions = PgConnectOptions()
+      .setPort(context.config().getInteger("port"))
+      .setHost(context.config().getString("host"))
+      .setDatabase(context.config().getString("database"))
+      .setUser(context.config().getString("user"))
+      .setPassword(context.config().getString("password"))
     // Pool Options
-    val poolOptions = PoolOptions().setMaxSize(5).setShared(true)
+    val poolOptions = PoolOptions()
+      .setMaxSize(context.config().getInteger("max_pool_size"))
+//      .setShared(true)
 
     // Create the pool from the data object
     return PgPool.pool(vertx, connectOptions, poolOptions)

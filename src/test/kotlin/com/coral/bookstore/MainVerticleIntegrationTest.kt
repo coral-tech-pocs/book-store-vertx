@@ -1,10 +1,13 @@
 package com.coral.bookstore
 
+import com.coral.bookstore.repository.LiquibaseConfig
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import coral.bookstore.bookstore.entity.Book
 import coral.bookstore.bookstore.models.BookInfo
 import io.reactiverse.junit5.web.TestRequest.*
+import io.vertx.core.DeploymentOptions
 import io.vertx.core.MultiMap
+import io.vertx.core.Promise
 import io.vertx.core.Vertx
 import io.vertx.core.buffer.Buffer
 import io.vertx.core.http.HttpClient
@@ -17,24 +20,48 @@ import io.vertx.ext.web.client.WebClient
 import io.vertx.junit5.VertxExtension
 import io.vertx.junit5.VertxTestContext
 import io.vertx.kotlin.core.json.get
+import io.vertx.kotlin.core.json.jsonObjectOf
 import io.vertx.uritemplate.UriTemplate
 import org.assertj.core.api.Assertions.*
+import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.TestInstance.Lifecycle
 import org.junit.jupiter.api.extension.ExtendWith
+import org.testcontainers.containers.PostgreSQLContainer
+import org.testcontainers.junit.jupiter.Container
+import org.testcontainers.junit.jupiter.Testcontainers
 import java.util.logging.Logger
 import kotlin.random.Random
 
-
+@Testcontainers
 @ExtendWith(VertxExtension::class)
 class MainVerticleIntegrationTest {
 
-  val logger = Logger.getLogger(MainVerticleIntegrationTest::class.java.name)
+  private val logger = Logger.getLogger(MainVerticleIntegrationTest::class.java.name)
+  private val deploymentOptions: DeploymentOptions = DeploymentOptions()
+
 
   @BeforeEach
   fun deploy_verticle(vertx: Vertx, testContext: VertxTestContext) {
-    vertx.deployVerticle(MainVerticle(), testContext.succeeding<String> { _ -> testContext.completeNow() })
+    val dbUri = postgresqlContainer.jdbcUrl.substringAfter("jdbc:")
+    logger.info("dbUri : $dbUri")
+    deploymentOptions.config = jsonObjectOf(
+//      "db.uri" to dbUri,
+      "port" to postgresqlContainer.firstMappedPort,
+      "host" to postgresqlContainer.host,
+      "database" to postgresqlContainer.databaseName,
+      "user" to DB_USERNAME,
+      "password" to DB_PASSWORD,
+      "max_pool_size" to 5
+    )
+//    vertx.executeBlocking { promise: Promise<Any> -> LiquibaseConfig.runLiquibaseScripts(vertx, promise)}
+    vertx.deployVerticle(
+      MainVerticle(),
+      deploymentOptions,
+      testContext.succeeding<String> { _ -> testContext.completeNow() })
   }
 
   @Test
@@ -350,6 +377,20 @@ class MainVerticleIntegrationTest {
       list.add(mapper.readValue((jsonArr.get(i) as JsonObject).toString(), BookInfo::class.java))
     }
     return list
+  }
+
+  companion object {
+    private const val DB_NAME = "coral_book_store"
+    private const val DB_USERNAME = "coral"
+    private const val DB_PASSWORD = "coral"
+
+    @Container
+    private var postgresqlContainer: PostgreSQLContainer<Nothing> = PostgreSQLContainer<Nothing>("postgres:15")
+      .apply {
+        withDatabaseName(DB_NAME)
+        withUsername(DB_USERNAME)
+        withPassword(DB_PASSWORD)
+      }
   }
 
 }

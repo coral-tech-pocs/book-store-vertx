@@ -15,7 +15,6 @@ class BookRepository(private val client: PgPool) {
   //  bookName : String, page : Int, pageSize : Int
   fun list(filterMap: HashMap<String, String>): Future<List<BookInfo>> {
     val params = HashMap<String, Any>()
-    LOGGER.info("title: ".plus(filterMap["title"].toString()))
     var query: String = "select * from book "
     if (filterMap["title"] != "") {
       query = query.plus("where title =#{title} ")

@@ -19,4 +19,4 @@ VALUES ('zxc3', 'Test 1', '', 52),
        ('zxc20', 'Test 18', '', 52),
        ('zxc21', 'Test 19', '', 52),
        ('zxc22', 'Test 20', '', 52),
-       ('zxc23', 'Test 21', '', 52);
+       ('zxc23', 'Test 21', '', 52) ON CONFLICT ON CONSTRAINT book_isbn_title_const DO NOTHING;

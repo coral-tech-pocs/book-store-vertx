@@ -1,6 +1,0 @@
-{
-  "host": "localhost",
-  "database": "liquibase_bookstore",
-  "user": "sa",
-  "password": "password"
-}

@@ -2,17 +2,15 @@ package com.coral.bookstore
 
 import com.coral.bookstore.repository.LiquibaseConfig
 import com.coral.bookstore.service.BookHandler
-import com.coral.bookstore.service.OpenApiService
 import com.coral.bookstore.service.OpenApiVerticle
 import coral.bookstore.bookstore.service.AuthorHandler
 import io.vertx.core.AbstractVerticle
-import io.vertx.core.Future
+import io.vertx.core.Context
 import io.vertx.core.Promise
+import io.vertx.core.json.JsonObject
 import io.vertx.ext.web.Router
 import io.vertx.ext.web.RoutingContext
 import io.vertx.ext.web.handler.BodyHandler
-import io.vertx.ext.web.openapi.RouterBuilder
-import io.vertx.ext.web.validation.ValidationHandler
 import java.util.logging.Level
 import java.util.logging.Logger
 
@@ -24,9 +22,6 @@ class MainVerticle : AbstractVerticle() {
     val bookHandler = BookHandler(vertx)
 //    val authorHandler = AuthorHandler(vertx)
 
-    //liquibase code
-//    vertx.executeBlocking { promise: Promise<Any> -> LiquibaseConfig.runLiquibaseScripts(vertx, promise)}
-
     vertx.deployVerticle(OpenApiVerticle())
 
     vertx.createHttpServer()
@@ -36,6 +31,7 @@ class MainVerticle : AbstractVerticle() {
       .onSuccess {
         startPromise.complete()
         println("HTTP server started on port " + it.actualPort())
+        LiquibaseConfig.runLiquibaseScripts(vertx, Promise.promise())
       }
       .onFailure {
         startPromise.fail(it)

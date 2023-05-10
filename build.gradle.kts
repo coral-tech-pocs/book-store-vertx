@@ -24,6 +24,10 @@ val launcherClassName = "io.vertx.core.Launcher"
 
 val watchForChange = "src/**/*"
 val doOnChange = "${projectDir}/gradlew classes"
+//profile ===> DEV
+//will be default if we run the project by setting
+// the parameter [--conf]
+val configProfile = "src/main/conf/DB_Connection.json"
 
 application {
   mainClass.set(launcherClassName)
@@ -50,10 +54,8 @@ dependencies {
   testImplementation("org.mockito.kotlin:mockito-kotlin:4.1.0")
   testImplementation("org.junit.jupiter:junit-jupiter:$junitJupiterVersion")
   testImplementation("org.assertj:assertj-core:3.24.2")
-  testImplementation("com.h2database:h2:2.1.214")
-
-
-
+  testImplementation("org.testcontainers:postgresql:1.18.0")
+  testImplementation("org.testcontainers:junit-jupiter:1.18.0")
 
 }
 
@@ -82,5 +84,5 @@ tasks.withType<Test> {
 }
 
 tasks.withType<JavaExec> {
-  args = listOf("run", mainVerticleName, "--redeploy=$watchForChange", "--launcher-class=$launcherClassName", "--on-redeploy=$doOnChange")
+  args = listOf("run", mainVerticleName, "--redeploy=$watchForChange", "--launcher-class=$launcherClassName", "--on-redeploy=$doOnChange", "--conf=$configProfile")
 }
